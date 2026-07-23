@@ -1,0 +1,22 @@
+app = "reverse-tool"
+primary_region = "iad"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+PORT = "8080"
+
+[[services]]
+internal_port = 8080
+processes = ["app"]
+protocol = "tcp"
+
+[services.http_checks]
+enabled = true
+endpoint = "/"
+interval = 10000
+timeout = 5000
+grace_period = "10s"
+method = "get"
+path = "/"
