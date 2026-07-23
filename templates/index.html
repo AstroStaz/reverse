@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reverse Edit</title>
+<style>
+  :root {
+    --bg:       #0d0d10;
+    --panel:    #17171d;
+    --border:   #26262f;
+    --border2:  #32323e;
+    --accent:   #f5a623;
+    --accent2:  #e8861a;
+    --text:     #e2e2e8;
+    --muted:    #6b6b7d;
+    --good:     #3ecf8e;
+    --bad:      #e55;
+    --seg-a:    #f5a623;
+    --seg-b:    #a78bfa;
+    --radius:   8px;
+    --font:     'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 14px;
+    min-height: 100dvh;
+    line-height: 1.5;
+  }
+
+  a { color: var(--accent); }
+
+  /* ── Layout ────────────────────────────────────────────────── */
+  .app {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 24px 16px 60px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo svg { width: 20px; height: 20px; }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: #fff;
+  }
+  h1 span { color: var(--accent); }
+
+  .tagline {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  /* ── Card ───────────────────────────────────────────────────── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ── Drop zone ──────────────────────────────────────────────── */
+  #dropzone {
+    border: 2px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  #dropzone:hover, #dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(245,166,35,0.05);
+  }
+  #dropzone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+  }
+  .dz-icon { font-size: 32px; margin-bottom: 10px; }
+  .dz-main { font-size: 15px; font-weight: 600; color: #fff; }
+  .dz-sub  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .dz-file {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    background: rgba(245,166,35,0.08);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13px;
+  }
+  .dz-file.show { display: flex; }
+  .dz-file-name { font-weight: 600; color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dz-file-size { color: var(--muted); flex-shrink: 0; }
+  .dz-clear {
+    background: none; border: none; color: var(--muted);
+    cursor: pointer; font-size: 16px; padding: 0 4px;
+    line-height: 1; flex-shrink: 0;
+  }
+  .dz-clear:hover { color: var(--bad); }
+
+  /* ── Controls grid ──────────────────────────────────────────── */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 20px;
+  }
+  @media (max-width: 520px) {
+    .controls-grid { grid-template-columns: 1fr; }
+  }
+  .ctrl-full { grid-column: 1 / -1; }
+
+  .ctrl label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .ctrl-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* sliders */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+  }
+  .slider-val {
+    min-width: 42px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* selects */
+  select {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--font);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6b7d' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus { border-color: var(--accent); }
+
+  /* checkbox */
+  .check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+  }
+  .check-row input[type=checkbox] {
+    width: 18px; height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .check-row span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .check-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    margin-left: 28px;
+  }
+
+  /* ── Easing graph ───────────────────────────────────────────── */
+  .graph-wrap {
+    position: relative;
+    background: #0b0b0e;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  #easing-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .graph-label {
+    font-size: 10px;
+    font-weight: 600;
+    fill: var(--muted);
+    font-family: var(--font);
+  }
+  .kf-label {
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--font);
+  }
+  .graph-legend {
+    display: flex;
+    gap: 16px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px; height: 3px; border-radius: 2px;
+  }
+
+  /* ── Submit / status ────────────────────────────────────────── */
+  #submit-btn {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: #000;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: var(--font);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    letter-spacing: 0.01em;
+  }
+  #submit-btn:hover:not(:disabled) { background: var(--accent2); }
+  #submit-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  #status-box {
+    display: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-top: 16px;
+  }
+  #status-box.show { display: block; }
+
+  .status-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 10px;
+  }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-icon { font-size: 20px; flex-shrink: 0; }
+  .status-title { font-size: 14px; font-weight: 600; color: #fff; }
+  #status-msg   { font-size: 12px; color: var(--muted); }
+  #error-detail {
+    font-size: 12px; color: var(--bad);
+    background: rgba(238,85,85,0.08);
+    border: 1px solid rgba(238,85,85,0.2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: none;
+  }
+
+  /* ── Result ─────────────────────────────────────────────────── */
+  #result-box {
+    display: none;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 16px;
+  }
+  #result-box.show { display: block; }
+  #result-video {
+    display: block;
+    width: 100%;
+    max-height: 480px;
+    background: #000;
+  }
+  .result-actions {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .result-label { font-size: 12px; color: var(--muted); }
+  .result-label strong { color: #fff; }
+  .dl-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 13px;
+    font-family: var(--font);
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+  .dl-btn:hover { background: var(--accent2); }
+  .new-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font);
+    border-radius: 6px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .new-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 3L17 10L10 17" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3 10H17" stroke="#000" stroke-width="2.2" stroke-linecap="round" opacity=".45"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Reverse <span>Edit</span></h1>
+      <div class="tagline">Forward to peak · eased rewind · motion-smoothed output</div>
+    </div>
+  </header>
+
+  <!-- Drop zone -->
+  <div class="card">
+    <div class="card-title">Source Clip</div>
+    <div id="dropzone">
+      <input type="file" id="file-input" accept=".mp4,.mov,.webm,.m4v" />
+      <div id="dz-placeholder">
+        <div class="dz-icon">🎬</div>
+        <div class="dz-main">Drop a clip or click to browse</div>
+        <div class="dz-sub">MP4 · MOV · WebM · M4V &nbsp;·&nbsp; up to 60 MB</div>
+      </div>
+      <div class="dz-file" id="dz-file-info">
+        <span>📹</span>
+        <span class="dz-file-name" id="dz-filename">—</span>
+        <span class="dz-file-size" id="dz-filesize">—</span>
+        <button class="dz-clear" id="dz-clear-btn" title="Remove">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="card-title">Parameters</div>
+    <div class="controls-grid">
+
+      <div class="ctrl">
+        <label>SPLIT POINT (peak frame)</label>
+        <div class="ctrl-row">
+          <input type="range" id="split" min="5" max="95" value="50" step="1">
+          <span class="slider-val" id="split-val">50%</span>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <label>STRETCH (time dilation)</label>
+        <div class="ctrl-row">
+          <input type="range" id="stretch" min="10" max="60" value="20" step="1">
+          <span class="slider-val" id="stretch-val">2.0×</span>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <label>TO-PEAK EASING (approach)</label>
+        <select id="to-peak-easing">
+          <option value="cubic_out" selected>Cubic Out — fast in, decelerate</option>
+          <option value="cubic_in">Cubic In — slow in, accelerate</option>
+          <option value="linear">Linear — constant speed</option>
+        </select>
+      </div>
+
+      <div class="ctrl">
+        <label>FROM-PEAK EASING (rewind)</label>
+        <select id="from-peak-easing">
+          <option value="cubic_in" selected>Cubic In — slow out, snap back</option>
+          <option value="cubic_out">Cubic Out — fast out, decelerate</option>
+          <option value="linear">Linear — constant speed</option>
+        </select>
+      </div>
+
+      <div class="ctrl">
+        <label>FINAL FPS (output frame rate)</label>
+        <div class="ctrl-row">
+          <input type="range" id="final-fps" min="15" max="60" value="60" step="1">
+          <span class="slider-val" id="final-fps-val">60 fps</span>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <label>OUTPUT QUALITY (CRF)</label>
+        <div class="ctrl-row">
+          <input type="range" id="crf" min="0" max="51" value="16" step="1">
+          <span class="slider-val" id="crf-val">16</span>
+        </div>
+      </div>
+
+      <div class="ctrl ctrl-full">
+        <label class="check-row">
+          <input type="checkbox" id="fast-mode">
+          <span>Fast mode — skip motion interpolation (plain fps conversion)</span>
+        </label>
+        <div class="check-hint">Disables minterpolate. Much faster, but no optical-flow smoothing between frames.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Easing curve graph -->
+  <div class="card">
+    <div class="card-title">Easing Curve — source frame vs. output frame</div>
+    <div class="graph-wrap">
+      <svg id="easing-svg" viewBox="0 0 460 160" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+        <!-- grid lines -->
+        <line x1="30" y1="10" x2="30" y2="140" stroke="#1e1e28" stroke-width="1"/>
+        <line x1="30" y1="140" x2="450" y2="140" stroke="#1e1e28" stroke-width="1"/>
+        <line x1="240" y1="10" x2="240" y2="140" stroke="#1e1e28" stroke-width="1" stroke-dasharray="4 4"/>
+        <line x1="30" y1="75" x2="450" y2="75" stroke="#1e1e28" stroke-width="1" stroke-dasharray="4 4"/>
+
+        <!-- Y axis labels -->
+        <text x="26" y="143" class="graph-label" text-anchor="end">0</text>
+        <text x="26" y="78" class="graph-label" text-anchor="end">½</text>
+        <text x="26" y="14" class="graph-label" text-anchor="end">peak</text>
+
+        <!-- X axis labels -->
+        <text x="30" y="154" class="graph-label" text-anchor="middle">start</text>
+        <text x="240" y="154" class="graph-label" text-anchor="middle">peak</text>
+        <text x="450" y="154" class="graph-label" text-anchor="middle">end</text>
+
+        <!-- Segment A path -->
+        <path id="path-a" fill="none" stroke="#f5a623" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Segment B path -->
+        <path id="path-b" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <!-- Keyframe dots -->
+        <circle id="kf1" cx="30"  cy="140" r="5" fill="#f5a623"/>
+        <circle id="kf2" cx="240" cy="10"  r="5" fill="#fff"/>
+        <circle id="kf3" cx="450" cy="140" r="5" fill="#a78bfa"/>
+
+        <!-- Keyframe labels -->
+        <text x="30"  y="8"   class="kf-label" fill="#f5a623" text-anchor="middle">① start</text>
+        <text x="240" y="8"   class="kf-label" fill="#fff"    text-anchor="middle" dy="-1">② peak</text>
+        <text x="450" y="8"   class="kf-label" fill="#a78bfa" text-anchor="end">③ end</text>
+      </svg>
+      <div class="graph-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--seg-a)"></div>
+          <span>Segment A — to peak</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:var(--seg-b)"></div>
+          <span>Segment B — rewind</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button id="submit-btn">Process Clip</button>
+
+  <!-- Status -->
+  <div id="status-box">
+    <div class="status-header">
+      <div class="spinner" id="status-spinner"></div>
+      <div class="status-icon" id="status-icon" style="display:none"></div>
+      <div>
+        <div class="status-title" id="status-title">Processing…</div>
+        <div id="status-msg"></div>
+      </div>
+    </div>
+    <div id="error-detail"></div>
+  </div>
+
+  <!-- Result -->
+  <div id="result-box">
+    <video id="result-video" controls playsinline></video>
+    <div class="result-actions">
+      <div class="result-label">Output ready — <strong>no audio</strong></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="new-btn" id="new-btn">← New clip</button>
+        <a class="dl-btn" id="dl-link" href="#" download="reverse_edit.mp4">
+          ↓ Download MP4
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .app -->
+
+<script>
+// ── Easing math (mirrors Python) ──────────────────────────────────────────
+function ease(t, mode) {
+  t = Math.max(0, Math.min(1, t));
+  if (mode === 'cubic_out') return 1 - Math.pow(1 - t, 3);
+  if (mode === 'cubic_in')  return Math.pow(t, 3);
+  return t; // linear
+}
+
+// ── Graph ─────────────────────────────────────────────────────────────────
+const GX0 = 30, GX1 = 450;   // graph x extents (SVG units)
+const GY0 = 10, GY1 = 140;   // graph y extents (top = peak, bottom = 0)
+const N   = 120;              // sample points per segment
+
+function updateGraph() {
+  const toPeak   = document.getElementById('to-peak-easing').value;
+  const fromPeak = document.getElementById('from-peak-easing').value;
+  const midX     = (GX0 + GX1) / 2;
+
+  const ptsA = [], ptsB = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const yA = ease(t, toPeak);                 // 0→1 (fraction of peak)
+    const xA = GX0 + (i / (2 * (N - 1))) * (GX1 - GX0);
+    const svgYA = GY1 - yA * (GY1 - GY0);
+    ptsA.push(`${i === 0 ? 'M' : 'L'}${xA.toFixed(2)},${svgYA.toFixed(2)}`);
+
+    const yB = 1 - ease(t, fromPeak);           // 1→0
+    const xB = midX + (i / (2 * (N - 1))) * (GX1 - GX0);
+    const svgYB = GY1 - yB * (GY1 - GY0);
+    ptsB.push(`${i === 0 ? 'M' : 'L'}${xB.toFixed(2)},${svgYB.toFixed(2)}`);
+  }
+
+  document.getElementById('path-a').setAttribute('d', ptsA.join(' '));
+  document.getElementById('path-b').setAttribute('d', ptsB.join(' '));
+
+  // update kf2 y = top (always, since peak is always peak)
+  document.getElementById('kf2').setAttribute('cy', GY0);
+}
+
+// ── Drop zone ─────────────────────────────────────────────────────────────
+const dropzone    = document.getElementById('dropzone');
+const fileInput   = document.getElementById('file-input');
+const dzPlacehold = document.getElementById('dz-placeholder');
+const dzFileInfo  = document.getElementById('dz-file-info');
+const dzFilename  = document.getElementById('dz-filename');
+const dzFilesize  = document.getElementById('dz-filesize');
+const dzClearBtn  = document.getElementById('dz-clear-btn');
+
+let selectedFile = null;
+
+function fmtBytes(b) {
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function setFile(f) {
+  if (!f) { clearFile(); return; }
+  const MAX = 64 * 1024 * 1024;
+  if (f.size > MAX) {
+    alert('File too large (max 60 MB).');
+    return;
+  }
+  selectedFile = f;
+  dzFilename.textContent = f.name;
+  dzFilesize.textContent = fmtBytes(f.size);
+  dzPlacehold.style.display = 'none';
+  dzFileInfo.classList.add('show');
+}
+
+function clearFile() {
+  selectedFile = null;
+  fileInput.value = '';
+  dzPlacehold.style.display = '';
+  dzFileInfo.classList.remove('show');
+}
+
+fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+dzClearBtn.addEventListener('click', e => { e.stopPropagation(); clearFile(); });
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+
+// ── Slider labels ─────────────────────────────────────────────────────────
+function bindSlider(id, valId, fmt) {
+  const el = document.getElementById(id);
+  const vl = document.getElementById(valId);
+  el.addEventListener('input', () => { vl.textContent = fmt(el.value); updateGraph(); });
+  vl.textContent = fmt(el.value);
+}
+
+bindSlider('split',     'split-val',     v => `${v}%`);
+bindSlider('stretch',   'stretch-val',   v => `${(parseInt(v)/10).toFixed(1)}×`);
+bindSlider('final-fps', 'final-fps-val', v => `${v} fps`);
+bindSlider('crf',       'crf-val',       v => v);
+
+document.getElementById('to-peak-easing').addEventListener('change', updateGraph);
+document.getElementById('from-peak-easing').addEventListener('change', updateGraph);
+
+// ── Submit & polling ──────────────────────────────────────────────────────
+const submitBtn  = document.getElementById('submit-btn');
+const statusBox  = document.getElementById('status-box');
+const statusSpinner = document.getElementById('status-spinner');
+const statusIconEl  = document.getElementById('status-icon');
+const statusTitle   = document.getElementById('status-title');
+const statusMsg     = document.getElementById('status-msg');
+const errorDetail   = document.getElementById('error-detail');
+const resultBox     = document.getElementById('result-box');
+const resultVideo   = document.getElementById('result-video');
+const dlLink        = document.getElementById('dl-link');
+const newBtn        = document.getElementById('new-btn');
+
+let pollTimer = null;
+
+function showStatus(title, msg, state /* 'processing'|'done'|'error' */) {
+  statusBox.classList.add('show');
+  statusTitle.textContent = title;
+  statusMsg.textContent   = msg;
+
+  const isProcessing = state === 'processing';
+  statusSpinner.style.display = isProcessing ? '' : 'none';
+  statusIconEl.style.display  = isProcessing ? 'none' : '';
+  if (state === 'done')  statusIconEl.textContent = '✅';
+  if (state === 'error') statusIconEl.textContent = '❌';
+  errorDetail.style.display = 'none';
+}
+
+function showError(title, detail) {
+  showStatus(title, '', 'error');
+  if (detail) {
+    errorDetail.style.display = 'block';
+    errorDetail.textContent   = detail;
+  }
+}
+
+function showResult(downloadUrl) {
+  resultBox.classList.add('show');
+  resultVideo.src = downloadUrl;
+  dlLink.href     = downloadUrl.replace('/result/', '/download/');
+  resultVideo.load();
+}
+
+function resetUI() {
+  clearFile();
+  statusBox.classList.remove('show');
+  resultBox.classList.remove('show');
+  resultVideo.src = '';
+  errorDetail.style.display = 'none';
+  submitBtn.disabled = false;
+}
+
+newBtn.addEventListener('click', resetUI);
+
+function pollJob(jobId) {
+  pollTimer = setInterval(async () => {
+    try {
+      const res  = await fetch(`/status/${jobId}`);
+      const data = await res.json();
+
+      statusMsg.textContent = data.status_msg || '';
+
+      if (data.status === 'done') {
+        clearInterval(pollTimer);
+        showStatus('Complete!', data.status_msg || '', 'done');
+        showResult(data.download);
+        submitBtn.disabled = false;
+      } else if (data.status === 'error') {
+        clearInterval(pollTimer);
+        showError('Processing failed', data.error || 'Unknown error.');
+        submitBtn.disabled = false;
+      }
+      // else: keep polling
+    } catch (err) {
+      // network blip — keep trying
+    }
+  }, 1500);
+}
+
+submitBtn.addEventListener('click', async () => {
+  if (!selectedFile) {
+    alert('Please select a clip first.');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  resultBox.classList.remove('show');
+  errorDetail.style.display = 'none';
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
+  const form = new FormData();
+  form.append('clip',              selectedFile);
+  form.append('split',             (parseInt(document.getElementById('split').value) / 100).toFixed(2));
+  form.append('to_peak_easing',    document.getElementById('to-peak-easing').value);
+  form.append('from_peak_easing',  document.getElementById('from-peak-easing').value);
+  form.append('stretch',           (parseInt(document.getElementById('stretch').value) / 10).toFixed(1));
+  form.append('final_fps',         document.getElementById('final-fps').value);
+  form.append('fast_mode',         document.getElementById('fast-mode').checked ? 'true' : 'false');
+  form.append('crf',               document.getElementById('crf').value);
+
+  showStatus('Uploading…', 'Sending clip to server', 'processing');
+
+  try {
+    const res  = await fetch('/process', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (!data.ok) {
+      showError('Upload failed', data.error || 'Unknown error.');
+      submitBtn.disabled = false;
+      return;
+    }
+
+    showStatus('Processing…', 'Starting pipeline', 'processing');
+    pollJob(data.job_id);
+
+  } catch (err) {
+    showError('Network error', err.message);
+    submitBtn.disabled = false;
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────
+updateGraph();
+</script>
+</body>
+</html>
